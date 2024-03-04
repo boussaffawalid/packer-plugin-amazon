@@ -98,7 +98,12 @@ WaitLoop:
 			"Password (since debug is enabled): %s", password))
 	}
 	// store so that we can access this later during provisioning
-	state.Put("winrm_password", password)
+	if(s.Comm.Type == "winrm") {
+		state.Put("winrm_password", password)
+	}
+	if(s.Comm.Type == "ssh") {
+		state.Put("ssh_password", password)
+	}
 	packersdk.LogSecretFilter.Set(password)
 
 	return multistep.ActionContinue
