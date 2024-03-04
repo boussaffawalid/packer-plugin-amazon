@@ -34,14 +34,14 @@ func (s *StepGetPassword) Run(ctx context.Context, state multistep.StateBag) mul
 	ui := state.Get("ui").(packersdk.Ui)
 
 	// Skip if we're not using winrm
-	if s.Comm.Type != "winrm" {
-		log.Printf("[INFO] Not using winrm communicator, skipping get password...")
+	if (s.Comm.Type != "winrm" && s.Comm.Type != "ssh") {
+		log.Printf("[INFO] Not using winrm not ssh communicator, skipping get password...")
 		return multistep.ActionContinue
 	}
 
 	// If we already have a password, skip it
-	if s.Comm.WinRMPassword != "" {
-		ui.Say("Skipping waiting for password since WinRM password set...")
+	if (s.Comm.WinRMPassword != "" || s.Comm.SSHPassword != "" ) {
+		ui.Say("Skipping waiting for password since WinRM or ssh password set...")
 		return multistep.ActionContinue
 	}
 
@@ -72,7 +72,12 @@ WaitLoop:
 			}
 
 			ui.Message(" \nPassword retrieved!")
-			s.Comm.WinRMPassword = password
+			if(s.Comm.Type == "winrm") {
+				s.Comm.WinRMPassword = password
+			}
+			if(s.Comm.Type == "ssh") {
+				s.Comm.SSHPassword = password
+			}
 			break WaitLoop
 		case <-timeout:
 			err := fmt.Errorf("Timeout waiting for password.")
@@ -90,11 +95,16 @@ WaitLoop:
 	// In debug-mode, we output the password
 	if s.Debug {
 		ui.Message(fmt.Sprintf(
-			"Password (since debug is enabled): %s", s.Comm.WinRMPassword))
+			"Password (since debug is enabled): %s", password))
 	}
 	// store so that we can access this later during provisioning
-	state.Put("winrm_password", s.Comm.WinRMPassword)
-	packersdk.LogSecretFilter.Set(s.Comm.WinRMPassword)
+	if(s.Comm.Type == "winrm") {
+		state.Put("winrm_password", password)
+	}
+	if(s.Comm.Type == "ssh") {
+		state.Put("ssh_password", password)
+	}
+	packersdk.LogSecretFilter.Set(password)
 
 	return multistep.ActionContinue
 }
